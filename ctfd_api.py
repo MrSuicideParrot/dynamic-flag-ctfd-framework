@@ -8,7 +8,7 @@ class CTFDClient:
         self.session.headers.update({"Authorization": f"Token {token}"})
 
     def _get(self, endpoint):
-        return self.session.get(self.base + endpoint)
+        return self.session.get(self.base + endpoint,json="")
 
     def get_challenges(self):
         resp = self._get("/challenges")

@@ -1,14 +1,20 @@
+import sched
+import time
+
 from docker import from_env
 import logging as log
 from secrets import token_hex
 from ctfd_api import CTFDClient
+from os import getenv
+
+scheduler = None
 
 
 def process_challenges(challenges):
     challenges_db = {}
 
     for i in challenges:
-        challenges_db[i["name"]] = [i["id"]]
+        challenges_db[i["name"]] = i["id"]
 
     return challenges_db
 
@@ -16,27 +22,24 @@ def process_challenges(challenges):
 def process_flags(flags):
     flags_db = {}
     for i in flags:
-        if i["challenge_id"] in flags_db:
-            flags_db["challenge_id"].append(i["id"])
+        if i["challenge_id"] in flags_db.keys():
+            flags_db[i["challenge_id"]].append(i["id"])
         else:
-            flags_db["challenge_id"] = [i["id"]]
+            flags_db[i["challenge_id"]] = [i["id"]]
 
     return flags_db
 
 
-def main():
-    ctfd_client = CTFDClient("cenas","http://aaaa")
-
-    challenges = {} #process_challenges(ctfd_client.get_challenges())
-    flags_by_challenge = {}#process_flags(ctfd_client.get_flags())
-
+def deploy_flags(ctfd_client, interval):
+    challenges = process_challenges(ctfd_client.get_challenges())
+    flags_by_challenge = process_flags(ctfd_client.get_flags())
     docker_client = from_env()
-    containers = docker_client.containers.list(filters={"label":"dynamic-label=true"})
+    containers = docker_client.containers.list(filters={"label": "dynamic-label=true"})
     for c in containers:
         challenge_name = ""
         flag_localization = ""
         flag_script = ""
-        user="root"
+        user = "root"
 
         for k, v in c.labels.items():
             if k == "challenge_name":
@@ -63,7 +66,8 @@ def main():
         new_flag = "flag{%s}" % token_hex(16)
 
         if flag_localization:
-            _, s = c.exec_run("/bin/sh -c 'cat >"+flag_localization+"'", stdout=False, stderr=False, stdin=True, socket=True, tty=True)
+            _, s = c.exec_run("/bin/sh -c 'cat >" + flag_localization + "'", stdout=False, stderr=False, stdin=True,
+                              socket=True, tty=True)
             s._sock.send(new_flag.encode())
             s._sock.send(b"\n\x04")
             s._sock.close()
@@ -78,10 +82,40 @@ def main():
 
         try:
             flags = flags_by_challenge[challenge_id]
-            flags.sort()
-            ctfd_client.delete_flag(flags[0])
+            if len(flags) > 1: # this is to ensure there are two flags
+                flags.sort()
+                ctfd_client.delete_flag(flags[0])
         except KeyError:
             pass
+
+        log.info(f"Challenge flag from {challenge_name} was updated.")
+
+    scheduler.enter(interval * 60, 1, deploy_flags, (ctfd_client, interval))
+
+
+def main():
+    global scheduler
+
+    keys = ["CTFD_URL", "TOKEN"]
+    config = {}
+
+    for i in keys:
+        resul = getenv(i)
+        if resul is None:
+            log.fatal(i + " isn't defined!")
+            exit(1)
+        else:
+            config[i] = resul
+
+    config["TIME_INTERVAL"] = float(getenv("TIME_INTERVAL", "5"))
+
+    ctfd_client = CTFDClient(config["TOKEN"], config["CTFD_URL"])
+
+    scheduler = sched.scheduler(time.time, time.sleep)
+
+    deploy_flags(ctfd_client, config["TIME_INTERVAL"])
+
+    scheduler.run()
 
 
 if __name__ == '__main__':
