@@ -1,21 +1,36 @@
-import sched
-import time
+import asyncio
+from concurrent.futures.process import ProcessPoolExecutor
 
-from multiprocessing import Process
-import multiprocessing_logging
-
+from fastapi import FastAPI
 from docker import from_env
-import logging
+import logging as log
 from secrets import token_hex
 
 from ctfd_api import CTFDClient
 from os import getenv
 
 scheduler = None
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger()
-multiprocessing_logging.install_mp_handler(log)
+log.basicConfig(level=log.INFO)
 
+ctfd_client = None
+docker_client = None
+
+app = FastAPI()
+
+docker_client = from_env()
+
+keys = ["CTFD_URL", "TOKEN"]
+config = {}
+
+for i in keys:
+    resul = getenv(i)
+    if resul is None:
+        log.fatal(i + " isn't defined!")
+        exit(1)
+    else:
+        config[i] = resul
+
+ctfd_client = CTFDClient(config["TOKEN"], config["CTFD_URL"])
 
 def process_challenges(challenges):
     challenges_db = {}
@@ -37,8 +52,10 @@ def process_flags(flags):
     return flags_db
 
 
-def search_for_new_containers(ctfd_client):
-    docker_client = from_env()
+
+
+
+def search_for_new_containers():
     while True:
         evs = docker_client.events(decode=True)
         for ev in evs:
@@ -47,14 +64,15 @@ def search_for_new_containers(ctfd_client):
                     cont = docker_client.containers.get(ev[u'id'])
                     if cont.labels["dynamic-label"]:
                         log.info(f"Container was started - {cont.name}")
-                        challenges = process_challenges(ctfd_client.get_challenges())
-                        flags_by_challenge = process_flags(ctfd_client.get_flags())
-                        deploy_container(cont, ctfd_client, challenges, flags_by_challenge)
+                        deploy_container(cont)
             except KeyError:
                 pass
 
 
-def deploy_container(c, ctfd_client, challenges, flags_by_challenge):
+def deploy_container(c):
+    challenges = process_challenges(ctfd_client.get_challenges())
+    flags_by_challenge = process_flags(ctfd_client.get_flags())
+
     challenge_name = ""
     flag_localization = ""
     flag_script = ""
@@ -101,7 +119,7 @@ def deploy_container(c, ctfd_client, challenges, flags_by_challenge):
 
     try:
         flags = flags_by_challenge[challenge_id]
-        if len(flags) > 1:  # this is to ensure there are two flags
+        if len(flags) > 0:  # this is to ensure there are one flag
             flags.sort()
             ctfd_client.delete_flag(flags[0])
     except KeyError:
@@ -110,44 +128,40 @@ def deploy_container(c, ctfd_client, challenges, flags_by_challenge):
     log.info(f"Challenge flag from {challenge_name} was updated.")
 
 
-def deploy_flags(ctfd_client, interval):
+@app.post("/solve/{challenge_id}")
+async def change_flag(challenge_id: int):
     challenges = process_challenges(ctfd_client.get_challenges())
-    flags_by_challenge = process_flags(ctfd_client.get_flags())
-    docker_client = from_env()
-    containers = docker_client.containers.list(filters={"label": "dynamic-label=true"})
-    for c in containers:
-        deploy_container(c, ctfd_client, challenges, flags_by_challenge)
+    for k, v in challenges.items():
+        if v == challenge_id:
+            containers = docker_client.containers.list(filters={"label": ["dynamic-label=true",
+                                                                          f"challenge-name={k}"]})
 
-    scheduler.enter(interval * 60, 1, deploy_flags, (ctfd_client, interval))
+            if len(containers) == 0:
+                log.warning(f"I - Container not found - {k}.")
+
+            if len(containers) > 1:
+                log.warning("More than one container was returned.")
+
+            deploy_container(containers[0])
+            return {"status": "ok"}
+
+    log.warning(f"O - Container not found - {challenge_id}.")
+    return {"status": "container not found."}
 
 
-def main():
-    global scheduler
+@app.on_event("startup")
+async def on_startup():
+    app.state.executor = ProcessPoolExecutor()
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(app.state.executor, search_for_new_containers)
 
-    keys = ["CTFD_URL", "TOKEN"]
-    config = {}
 
-    for i in keys:
-        resul = getenv(i)
-        if resul is None:
-            log.fatal(i + " isn't defined!")
-            exit(1)
-        else:
-            config[i] = resul
-
-    config["TIME_INTERVAL"] = float(getenv("TIME_INTERVAL", "5"))
-
-    ctfd_client = CTFDClient(config["TOKEN"], config["CTFD_URL"])
-
-    scheduler = sched.scheduler(time.time, time.sleep)
-
-    deploy_flags(ctfd_client, config["TIME_INTERVAL"])
-
-    log.info("Start installing  flags")
-
-    Process(target=search_for_new_containers, args=(ctfd_client,)).start()
-    scheduler.run()
+@app.on_event("shutdown")
+async def on_shutdown():
+    app.state.executor.shutwdown()
 
 
 if __name__ == '__main__':
-    main()
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
