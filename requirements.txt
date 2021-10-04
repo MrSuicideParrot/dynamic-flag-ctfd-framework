@@ -1,3 +1,4 @@
 docker~=5.0.2
 requests~=2.26.0
-multiprocessing_logging
+fastapi
+uvicorn
