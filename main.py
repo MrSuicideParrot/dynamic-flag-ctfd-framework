@@ -6,7 +6,7 @@ from docker import from_env
 import logging as log
 from secrets import token_hex
 
-from ctfd_api import CTFDClient
+from .ctfd_api import CTFDClient
 from os import getenv
 
 scheduler = None
