@@ -7,5 +7,5 @@
 * `flag-script` : script that it's called with the flag to update it
 
 ## ENV 
-* `CTFD_URL` : CTFd URL
+* `CTFD_URL` : CTFd endpoint ending with  /api/v1
 * `TOKEN` : Token

@@ -105,9 +105,9 @@ def deploy_container(c):
         s._sock.close()
         s.close()
     else:
-        result, _ = c.exec_run([flag_localization, new_flag])
+        result, _ = c.exec_run([flag_script, new_flag])
         if result != 0:
-            log.warning(f"Error running command {flag_localization} on {c.name}")
+            log.warning(f"Error running command {flag_script} on {c.name}")
             return
 
     ctfd_client.add_flag(challenge_id, new_flag)
