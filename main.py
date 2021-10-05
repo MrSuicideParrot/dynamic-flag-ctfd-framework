@@ -51,10 +51,6 @@ def process_flags(flags):
 
     return flags_db
 
-
-
-
-
 def search_for_new_containers():
     while True:
         evs = docker_client.events(decode=True)
@@ -67,7 +63,6 @@ def search_for_new_containers():
                         deploy_container(cont)
             except KeyError:
                 pass
-
 
 def deploy_container(c):
     challenges = process_challenges(ctfd_client.get_challenges())
@@ -127,6 +122,13 @@ def deploy_container(c):
 
     log.info(f"Challenge flag from {challenge_name} was updated.")
 
+def initialize_containers():
+    log.info("Initializing running containers.")
+    docker_client = from_env()
+    containers = docker_client.containers.list(filters={"label": "dynamic-label=true"})
+    for c in containers:
+        deploy_container(c)
+
 
 @app.post("/solve/{challenge_id}")
 async def change_flag(challenge_id: int):
@@ -160,6 +162,7 @@ async def on_startup():
 async def on_shutdown():
     app.state.executor.shutwdown()
 
+initialize_containers()
 
 if __name__ == '__main__':
     import uvicorn

@@ -7,6 +7,5 @@
 * `flag-script` : script that it's called with the flag to update it
 
 ## ENV 
-* `TIME_INTERVAL`: Time interval in minutes
 * `CTFD_URL` : CTFd URL
 * `TOKEN` : Token
