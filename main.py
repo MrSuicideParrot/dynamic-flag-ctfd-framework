@@ -88,6 +88,7 @@ def deploy_container(c):
     try:
         challenge_id = challenges[challenge_name]
     except KeyError:
+        log.warning(challenges)
         log.warning(f"Challenge - {challenge_name} - not found ")
         return
 
