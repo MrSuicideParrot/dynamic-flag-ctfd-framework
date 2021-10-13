@@ -11,7 +11,7 @@ class CTFDClient:
         return self.session.get(self.base + endpoint,json="")
 
     def get_challenges(self):
-        resp = self._get("/challenges")
+        resp = self._get("/challenges?view=admin")
         resp.raise_for_status()
         return resp.json()["data"]
 
