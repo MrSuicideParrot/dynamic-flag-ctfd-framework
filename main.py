@@ -159,7 +159,7 @@ async def check_flag(challenge_id: int, flag:str, response: Response):
     flags = flags_by_challenge[challenge_id]
 
     for i in flags:
-        if i == flag:
+        if ctfd_client.get_flag(i)['content'] == flag:
             return 'Flag found'
 
     response.status_code = status.HTTP_404_NOT_FOUND
