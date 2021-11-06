@@ -8,6 +8,7 @@ from secrets import token_hex
 
 from .ctfd_api import CTFDClient
 from os import getenv
+import time
 
 scheduler = None
 log.basicConfig(level=log.INFO)
@@ -60,6 +61,7 @@ def search_for_new_containers():
                     cont = docker_client.containers.get(ev[u'id'])
                     if cont.labels["dynamic-label"]:
                         log.info(f"Container was started - {cont.name}")
+                        time.sleep(5)
                         deploy_container(cont)
             except KeyError:
                 pass
