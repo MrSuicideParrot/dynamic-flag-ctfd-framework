@@ -61,7 +61,8 @@ def search_for_new_containers():
                     cont = docker_client.containers.get(ev[u'id'])
                     if cont.labels["dynamic-label"]:
                         log.info(f"Container was started - {cont.name}")
-                        time.sleep(5)
+                        if cont.labels["sleep-time"]:
+                            time.sleep(int(cont.labels["sleep-time"]))
                         deploy_container(cont)
             except KeyError:
                 pass
