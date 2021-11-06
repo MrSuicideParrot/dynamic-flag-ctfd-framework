@@ -11,7 +11,10 @@ from os import getenv
 import time
 
 scheduler = None
-log.basicConfig(level=log.INFO)
+if getenv("DEBUG") is None:
+    log.basicConfig(level=log.INFO)
+else:
+    log.basicConfig(level=log.DEBUG)
 
 ctfd_client = None
 docker_client = None
@@ -118,7 +121,7 @@ def deploy_container(c):
 
     try:
         flags = flags_by_challenge[challenge_id]
-        if len(flags) > 0:  # this is to ensure there are one flag
+        if len(flags) > 0:  # this is to ensure there is one flag
             flags.sort()
             ctfd_client.delete_flag(flags[0])
     except KeyError:
@@ -159,7 +162,9 @@ async def check_flag(challenge_id: int, flag:str, response: Response):
     flags = flags_by_challenge[challenge_id]
 
     for i in flags:
-        if ctfd_client.get_flag(i)['content'] == flag:
+        k_flag = ctfd_client.get_flag(i)['content']
+        log.debug(f"Comparing {k_flag} == {flag}")
+        if k_flag == flag:
             return 'Flag found'
 
     response.status_code = status.HTTP_404_NOT_FOUND
