@@ -1,7 +1,7 @@
 import asyncio
 from concurrent.futures.process import ProcessPoolExecutor
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 from docker import from_env
 import logging as log
 from secrets import token_hex
@@ -152,6 +152,18 @@ async def change_flag(challenge_id: int):
 
     log.warning(f"O - Container not found - {challenge_id}.")
     return {"status": "container not found."}
+
+@app.get("/check/{challenge_id}/{flag}")
+async def check_flag(challenge_id: int, flag:str, response: Response):
+    flags_by_challenge = process_flags(ctfd_client.get_flags())
+    flags = flags_by_challenge[challenge_id]
+
+    for i in flags:
+        if i == flag:
+            return 'Flag found'
+
+    response.status_code = status.HTTP_404_NOT_FOUND
+    return 'Flag not found'
 
 
 @app.on_event("startup")
