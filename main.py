@@ -144,11 +144,10 @@ async def change_flag(challenge_id: int):
 
             if len(containers) == 0:
                 log.warning(f"I - Container not found - {k}.")
-
-            if len(containers) > 1:
+            elif len(containers) > 1:
                 log.warning("More than one container was returned.")
-
-            deploy_container(containers[0])
+            else:
+                deploy_container(containers[0])
             return {"status": "ok"}
 
     log.warning(f"O - Container not found - {challenge_id}.")
