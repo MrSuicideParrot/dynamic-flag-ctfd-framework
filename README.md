@@ -9,3 +9,8 @@
 ## ENV 
 * `CTFD_URL` : CTFd endpoint ending with  /api/v1
 * `TOKEN` : Token
+
+## Test
+```
+docker run --rm -it -l "dynamic-label=true" alpine /bin/bash
+```

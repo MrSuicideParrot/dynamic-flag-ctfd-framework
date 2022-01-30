@@ -64,13 +64,17 @@ def search_for_new_containers():
                     cont = docker_client.containers.get(ev[u'id'])
                     if cont.labels["dynamic-label"]:
                         log.info(f"Container was started - {cont.name}")
-                        if cont.labels["sleep-time"]:
-                            time.sleep(int(cont.labels["sleep-time"]))
+                        try:
+                            if cont.labels["sleep-time"]:
+                                time.sleep(int(cont.labels["sleep-time"]))
+                        except KeyError:
+                            pass
                         deploy_container(cont)
             except KeyError:
                 pass
 
 def deploy_container(c):
+    log.info(f"Deploying - {c.name}")
     challenges = process_challenges(ctfd_client.get_challenges())
     flags_by_challenge = process_flags(ctfd_client.get_flags())
 
