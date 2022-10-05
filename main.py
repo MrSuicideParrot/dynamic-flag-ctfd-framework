@@ -154,7 +154,12 @@ async def change_flag(challenge_id: int):
             elif len(containers) > 1:
                 log.warning("More than one container was returned.")
             else:
-                deploy_container(containers[0])
+                container = containers[0]
+                if 'restart-after-flag' in container.labels.keys():
+                    log.debug(container.labels)
+                    container.restart()
+                else:
+                    deploy_container(containers[0])
             return {"status": "ok"}
 
     log.warning(f"O - Container not found - {challenge_id}.")
